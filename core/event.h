@@ -35,5 +35,9 @@ struct event_queue_s {
 void event_init(connection_t *c);
 event_t *event_posted_get();
 void event_process();
+int event_add(event_t *ev, int event);
+int event_del(event_t *ev, int event);
+void event_posted_add(event_t *ev);
+void event_posted_del(event_t *ev);
 
 #endif

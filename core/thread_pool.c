@@ -40,7 +40,9 @@ static void *worker(void *data)
 		log_debug("process a new event");
 	
 		ev = event_posted_get();
-		ev.handler(ev);
+		if (ev->active) {
+			ev.handler(ev);			
+		}
 	}
 }
 

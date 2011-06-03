@@ -9,9 +9,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <memory.h>
+#include <sys/epoll.h>
 
 #include "connection.h"
 #include "mem_pool.h"
+#include "event.h"
 
 static pthread_mutex_t connections_free_lock;
 static volatile connection_t *connections;	//已使用的连接
@@ -44,6 +47,7 @@ void connection_init()
 connection_t * connection_get(socket_t s)
 {
 	connection_t *c;
+	event_t *ev;
 	pthread_mutex_lock(&connections_free_lock);
 	//获取一个connection
 	if (connections_free == NULL) {
@@ -56,12 +60,15 @@ connection_t * connection_get(socket_t s)
 	pthread_mutex_unlock(&connections_free_lock);
 	
 	if (c != NULL) {
-		c->read.data = c;
-		c->write.data = c
 		c->fd = s;
 		c->pool = mem_pool_create();
 		
 		//清空event_t属性字段
+		memset(c->read, 0, sizeof(event_t));
+		memset(c->write, 0, sizeof(event_t));
+		
+		c->read.data = c;
+		c->write.data = c
 	}
 	else {
 		return NULL;
@@ -77,16 +84,34 @@ void connection_free(connection_t *c)
 {
 	pthread_mutex_lock(&connections_free_lock);
 	//释放一个connection
+	connection_close(c);
 	c.data = connections_free;
 	connections_free = c;
 	pthread_mutex_unlock(&connections_free_lock);
 }
 
 /*
-*	关闭一个连接，关闭操作包括关闭与连接相关的所有信息
+*	关闭一个连接，关闭操作包括关闭与连接相关的所有信息和连接时的分配资源
 */
 void connection_close(connnection_t *c)
 {
+	event_t *ev;
+	
+	//取消epoll event
+	ev = c->read;
+	if (ev->active) {
+		event_del(ev, EPOLLIN);
+	}
+	event_posted_del(ev);
+	
+	ev = c->write;
+	if (ev->active) {
+		event_del(ev, EPOLLOUT);
+	}
+	event_posted_del(ev)
+	
+	close(c->fd);
+	mem_pool_destroy(c->pool);
 }
 
 /*
