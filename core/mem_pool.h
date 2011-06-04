@@ -24,7 +24,7 @@ typedef int mem_size_t;
 typedef struct mem_chunk_s{
 	mem_size_t size;	//块的尺寸
 	mem_size_t free_size;	//块剩余的
-	mem_chunk_s *next;
+	struct mem_chunk_s *next;
 	char *first_avail;	//标志可以用内存的起始位置
 	char *endp;	//标志可以用内存的结束位置
 }mem_chunk_t;

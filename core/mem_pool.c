@@ -10,8 +10,9 @@
 #include <stdlib.h>
 
 #include "mem_pool.h"
+#include "log.h"
 
-#define MEM_POOL_SIZE 4096*4	//内存池创建时为1024*8
+#define MEM_POOL_SIZE 4096*4	//内存池创建时为16k
 
 static mem_chunk_t *create_chunk(mem_size_t);
 
@@ -28,18 +29,22 @@ mem_pool_t *mem_pool_create()
 		log_error(0, "malloc() memery use up");
 		return NULL;
 	}
-	pool = (mem_pool_t *)(chunk + sizeof(mem_chunk_t));
+	pool = (mem_pool_t *)((char *)chunk + sizeof(mem_chunk_t));
 	
 	chunk->size = MEM_POOL_SIZE;
 	chunk->free_size = MEM_POOL_SIZE - sizeof(mem_pool_t) - sizeof(mem_chunk_t);
 	chunk->next = NULL;
-	chunk->first_avail = pool + sizeof(mem_pool_t);
-	chunk->endp = chunk + MEM_POOL_SIZE - 1;
+	chunk->first_avail = (char *)(pool) + sizeof(mem_pool_t);
+	chunk->endp = (char *)(chunk) + MEM_POOL_SIZE - 1;
 	
 	pool->first = chunk;
 	pool->last = chunk;
 	pool->current = chunk;
 	pthread_mutex_init(&pool->lock, 0);
+	
+	log_debug("memory pool created");
+	
+	return pool;
 }
 
 /*
@@ -47,7 +52,7 @@ mem_pool_t *mem_pool_create()
 */
 void mem_pool_destroy(mem_pool_t *pool)
 {
-	mem_chunk_t *cur_chunk, next_chunk;
+	mem_chunk_t *cur_chunk, *next_chunk;
 	
 	next_chunk = pool->first;
 	do {
@@ -56,6 +61,8 @@ void mem_pool_destroy(mem_pool_t *pool)
 		
 		free(cur_chunk);
 	} while(next_chunk != NULL);
+	
+	pthread_mutex_destroy(&pool->lock);
 }
 
 /*
@@ -84,9 +91,9 @@ void *mem_palloc(mem_pool_t *pool, mem_size_t size)
 		}
 	}
 	
-	mem_addr = chunk->fist_avail;
+	mem_addr = chunk->first_avail;
 	chunk->first_avail += size;
-	chunk->free -=size;
+	chunk->free_size -= size;
 	
 	return mem_addr;
 }
@@ -98,16 +105,24 @@ static mem_chunk_t *create_chunk(mem_size_t size)
 {
 	mem_chunk_t *chunk;
 	
-	chunk = (mem_chunk_t *)malloc(MEM_ALIGN(size + sizeof(mem_chunk_t)));
+	if (size + sizeof(mem_chunk_t) <= MEM_CHUNK_DEFAULT_SIZE) {
+		size = MEM_CHUNK_DEFAULT_SIZE; //保证内存块的最小分配
+	}
+	else {
+		size = MEM_ALIGN(size + sizeof(mem_chunk_t));
+	}
+	
+	chunk = (mem_chunk_t *)malloc(size);
 	if (chunk == NULL) {
 		log_error(0, "malloc() memery use up");
 		return NULL;
 	}
-	chunk->size =MEM_ALIGN(size + sizeof(mem_chunk_t));
-	chunk->free_size = MEM_ALIGN(size + sizeof(mem_chunk_t)) - sizeof(mem_chunk_t);
+	chunk->size = size;
+	chunk->free_size = size - sizeof(mem_chunk_t);
 	chunk->next = NULL;
-	chunk->first_avail = chunk + sizeof(mem_chunk_t);
-	chunk->endp = chunk + MEM_POOL_SIZE - 1;
+	chunk->first_avail = (char *)chunk + sizeof(mem_chunk_t);
+	chunk->endp = (char *)chunk + size - 1;
 	
+	log_debug("memory chunk alloced");
 	return chunk;
 }

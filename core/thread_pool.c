@@ -36,7 +36,7 @@ static void *worker(void *data)
 	event_t *ev;
 	
 	for (;;) {	//循环处理事件
-		sem_wait(&posted_event_num);	//没有需要处理的事件时，就等待
+		sem_wait(&posted_event_num);	//没有需要处理的事件时，就等待，当然这会引起线程切换导致一些开销
 		log_debug("process a new event");
 	
 		ev = event_posted_get();

@@ -257,7 +257,7 @@ void event_process()
 						log_debug("connection overload and discard");
 					}
 					else {
-						http_init_connection(c); //初始化一个HTTP连接
+						http_init_connection(c); //初始化一个HTTP连接，功能的衔接点(link)
 						log_access("connection reached");
 					}
 				}while(1);
@@ -266,7 +266,7 @@ void event_process()
 				//将发生的事件，放入事件队列中
 				log_debug("A event Occurred");
 				c = event_list[i].data.ptr;
-				//在这里debug一下events的值
+				//在这里debug一下events的值，这里可以对event增加一个ready字段，发生事件后就标志，处理完后就取消
 				if ((event_list[i].events & EPOLLIN) && c->read.active) {
 					event_posted_add(c.read);
 				}

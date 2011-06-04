@@ -12,10 +12,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <time.h>
 
-#define DEBUG 0
-#define ERROR 1
-#define LOG_LEVEL DEBUG
+#include "log.h"
 
 //这是日志文件的配置
 //#define error_log "/var/log/mihttpd_error"
@@ -27,7 +26,9 @@
 #define access_log "./mihttpd_access"
 
 FILE *mi_error;
-FILE *mi_debug;
+#ifdef DEBUG
+	FILE *mi_debug;
+#endif
 FILE *mi_access;
 
 /*
@@ -69,25 +70,24 @@ void log_init()
 		}
 	}
 	
-	if (LOG_LEVEL == DEBUG ) {
-		if (stat(debug_log, &s) == -1) {
-			if (errno == ENOENT) {	//文件不存在，创建
-				if ((mi_debug = fopen(debug_log, "w")) == NULL) {
-					printf("debug_log init failure\n");
-					exit(1);
-				}
-			}
-		}
-		else {
-			if ((mi_debug = fopen(debug_log, "a")) == NULL) {
+	#ifdef DEBUG
+	if (stat(debug_log, &s) == -1) {
+		if (errno == ENOENT) {	//文件不存在，创建
+			if ((mi_debug = fopen(debug_log, "w")) == NULL) {
 				printf("debug_log init failure\n");
 				exit(1);
 			}
 		}
 	}
+	else {
+		if ((mi_debug = fopen(debug_log, "a")) == NULL) {
+			printf("debug_log init failure\n");
+			exit(1);
+		}
+	}
+	#endif
 
-	fd = open(error_log, O_APPEND);
-	dup2(fd, STDIN_FILENO);
+	fd = open("/dev/null", O_WRONLY);
 	dup2(fd, STDOUT_FILENO);
 	dup2(fd, STDERR_FILENO);
 }
@@ -102,13 +102,13 @@ void _log_error(int error_no, char *msg, char *filename, int line)
 
 void _log_debug(char *msg, char *filename,int line)
 {
-	if (LOG_LEVEL == DEBUG) {
-		fprintf(mi_debug, "%s:%d %s\n", filename, line, msg);
-	}
+	fprintf(mi_debug, "%s:%d %s\n", filename, line, msg);
 }
 
 void log_access(char *msg)
 {
 	//记录访问时间
-	fprintf(mi_access, "2011-6-2 %s\n", msg);
+	time_t timep;
+	time(&timep);
+	fprintf(mi_access, "%s ::%s\n", msg, ctime(&timep));
 }
