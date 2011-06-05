@@ -12,7 +12,6 @@
 #include <errno.h>
 
 #include "event.h"
-#include "connection.h"
 #include "inet.h"
 #include "log.h"
 #include "thread_pool.h"
@@ -44,7 +43,7 @@ void event_init(connection_t *c_free)
 	
 	for	(n = 0; n < NCONNECTION; n++) {
 		c_free[n].read = &read_event[n];
-		c_free[n].wirte = &wirte_event[n];
+		c_free[n].wirte = &write_event[n];
 	}
 	
 	epoll_fd = epoll_create(NEVENTS);
@@ -90,7 +89,7 @@ int event_add(event_t *ev, int event)
 	
 	log_debug("epoll event add");
 	
-	if (epoll_wait(epoll_fd, op, c->fd, &ee) == -1) {
+	if (epoll_ctl(epoll_fd, op, c->fd, &ee) == -1) {
 		log_error(errno, "epoll_wait() add");
 		return ERROR;
 	}
@@ -108,12 +107,12 @@ int event_del(event_t *ev, int event)
 	connection_t *c;
 	event_t *e;
 	struct epoll_event ee;
-	int op;
+	int op, pre_event;
 	
 	c = ev->data;
 	if (event == EPOLLIN) {
 		e = c->write;
-		pre_event = EPOLLOUT
+		pre_event = EPOLLOUT;
 	}
 	else {
 		e = c->read;
@@ -154,12 +153,12 @@ void event_posted_add(event_t *ev)
 		ev->pre = NULL;	//保证队列首尾元素pre 和next指向NULL
 	}
 	else {
-		ev->pre = posted_event.tail;
-		posted_event.tail->next = ev;		
+		ev->pre = posted_events.tail;
+		posted_events.tail->next = ev;		
 	}
 	ev->posted = 1;
 	ev->next = NULL;
-	posted_event.tail = ev;
+	posted_events.tail = ev;
 	pthread_mutex_unlock(&posted_events.lock);
 }
 
@@ -182,7 +181,7 @@ void event_posted_del(event_t *ev)
 			}
 			
 			if (posted_events.tail == ev) {
-				poted_events.tail = ev->pre;
+				posted_events.tail = ev->pre;
 			}
 		}
 		ev->posted = 0;
@@ -267,12 +266,12 @@ void event_process()
 				log_debug("A event Occurred");
 				c = event_list[i].data.ptr;
 				//在这里debug一下events的值，这里可以对event增加一个ready字段，发生事件后就标志，处理完后就取消
-				if ((event_list[i].events & EPOLLIN) && c->read.active) {
-					event_posted_add(c.read);
+				if ((event_list[i].events & EPOLLIN) && c->read->active) {
+					event_posted_add(c->read);
 				}
 				
-				if ((event_list[i].events & EPOLLOUT) && c->write.active) {
-					event_posted_add(c.write);
+				if ((event_list[i].events & EPOLLOUT) && c->write->active) {
+					event_posted_add(c->write);
 				}
 				//给工作线程分派事件，处理
 				thread_dispatch();

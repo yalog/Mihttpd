@@ -41,7 +41,7 @@ static void *worker(void *data)
 	
 		ev = event_posted_get();
 		if (ev->active) {
-			ev.handler(ev);			
+			ev->handler(ev);			
 		}
 	}
 }

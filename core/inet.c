@@ -10,6 +10,7 @@
 #include <sys/fcntl.h>
 #include <strings.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "inet.h"
 #include "../include/types.h"
@@ -46,8 +47,8 @@ int inet_init()
 		exit(1);
 	}
 	
-	if (setsockopt(listening.s, SO_REUSERADDR, (const char *)&reuse, sizeof(reuse)) == -1 || 
-		setsockopt(listening.s, SO_REUSERADDR, (const char *)&buf_size, sizeof(buf_size)) == -1) {
+	if (setsockopt(listening.s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1 || 
+		setsockopt(listening.s, SOL_SOCKET, SO_REUSEADDR, &buf_size, sizeof(buf_size)) == -1) {
 		log_error(errno, "setsockopt()");
 		exit(1);
 	}

@@ -14,7 +14,10 @@
 
 #include "connection.h"
 #include "mem_pool.h"
-#include "event.h"
+#include "log.h"
+#include "inet.h"
+
+static void connection_close(connnection_t *c);
 
 static pthread_mutex_t connections_free_lock;
 static volatile connection_t *connections;	//已使用的连接
@@ -31,7 +34,7 @@ void connection_init()
 	pthread_mutex_init(&connections_free_lock, 0);
 	connections = NULL;
 	connections_free = (connection_t *)malloc(MEM_ALIGN(sizeof(connection_t) * NCONNECTION)); //分配连接池
-	c = connections_free;
+	c = (connection_t *c)connections_free;
 	
 	//链接预分配连接
 	for (n = 0; n < NCONNECTION - 1; n++) {
@@ -54,7 +57,7 @@ connection_t * connection_get(socket_t s)
 		c = NULL;
 	}
 	else {
-		c = connections_free;
+		c = (connection_t *c)connections_free;
 		connections_free = c->data;
 	}
 	pthread_mutex_unlock(&connections_free_lock);
@@ -67,8 +70,8 @@ connection_t * connection_get(socket_t s)
 		memset(c->read, 0, sizeof(event_t));
 		memset(c->write, 0, sizeof(event_t));
 		
-		c->read.data = c;
-		c->write.data = c
+		c->read->data = c;
+		c->write->data = c
 	}
 	else {
 		return NULL;
@@ -82,10 +85,11 @@ connection_t * connection_get(socket_t s)
 */
 void connection_free(connection_t *c)
 {
-	pthread_mutex_lock(&connections_free_lock);
-	//释放一个connection
 	connection_close(c);
-	c.data = connections_free;
+	
+	pthread_mutex_lock(&connections_free_lock);
+	//释放一个connection	
+	c->data = (connection_t *c)connections_free;
 	connections_free = c;
 	pthread_mutex_unlock(&connections_free_lock);
 }
@@ -93,7 +97,7 @@ void connection_free(connection_t *c)
 /*
 *	关闭一个连接，关闭操作包括关闭与连接相关的所有信息和连接时的分配资源
 */
-void connection_close(connnection_t *c)
+static void connection_close(connnection_t *c)
 {
 	event_t *ev;
 	

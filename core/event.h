@@ -7,6 +7,7 @@
 #define _EVENT_H_
 
 #include <pthread.h>
+#include "connection.h"
 
 #define EVENT_SOCKET_ACCEPT 0
 #define EVENT_SOCKET_READ 1
@@ -21,7 +22,7 @@ typedef struct event_s{
 	int fd;	//与这个事件关联的文件描述
 	int active;	//标志这个事件是不是活跃
 	int posted; //标志是否放置在事件队列中
-	void (* handler)(event_t *);	//事件处理句柄
+	void (* handler)(struct event_s *);	//事件处理句柄
 	struct event_s *pre;	//事件链接，至于双向链表，是为了快速删除一个事件队列中的事件
 	struct event_s *next;
 }event_t;
@@ -32,7 +33,7 @@ struct event_queue_s {
 	pthread_mutex_t lock;
 };
 
-void event_init(connection_t *c);
+void event_init(struct connection_s *); //这个地方编译喜欢出错，后面要用的时候再解决
 event_t *event_posted_get();
 void event_process();
 int event_add(event_t *ev, int event);
